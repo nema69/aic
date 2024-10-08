@@ -1,7 +1,7 @@
 % clear all
 
 %Simulation parameters
-t_total = 500; %s
+t_total = 50; %s
 freq = 1000; %Hz zu hohe Frequenz führt zu schlechter Konvergenz
 samples = t_total*freq;
 
@@ -16,7 +16,7 @@ time_vector = linspace(0,t_total,samples);
 % input_signal = sin(time_vector);
 input_signal = ((rand(samples,1))-0.5)*100;
 % input signal filter
-input_filter = tf(1, [1/2 1]);
+input_filter = tf(1, [0.5 1]);
 input_signal = lsim(input_filter,input_signal, time_vector);
 %Ausgangssignal simulieren
 output_signal = lsim(strecke,input_signal,time_vector);
@@ -24,7 +24,7 @@ output_signal = lsim(strecke,input_signal,time_vector);
 %Filterparameter
 num_taps = 75; % Anzahl der Filterkoeffizienten
 w = zeros(num_taps, 1); % Initialisierung mit Nullen
-mu = 0.02/num_taps;
+mu = 0.08/num_taps;
 
 %Adaptiven Filter an jedem Zeitpunkt berechnen und sein Ausgangssignal an
 %diesem Zeitpunkt
@@ -41,17 +41,60 @@ end
 %Fehler zwischen Soll Signal und Filter Ausgang
 error_out = output_signal-adaptive_filter_out;
 num_taps
-end_error = mean(error_out(end-10000:end).^2)
+end_error = mean(error_out(end-samples*0.1:end).^2)
 
 %plotten
 figure 
-plot(time_vector,adaptive_filter_out, 'x');
+subplot(2,1,1);
 hold on
+plot(time_vector,adaptive_filter_out, 'x');
 plot(time_vector,output_signal,'LineWidth',2);
-legend('Filter Ausgang','Strecken Ausgang')
+title('Verlauf der Strecke und des adaptiven Filters')
+ylabel('Ausgansamplitude')
+xlabel('Zeit [s]')
 hold off
-figure
+legend('Filter Ausgang','Strecken Ausgang')
+subplot(2,1,2);
+
 semilogy(error_out.^2)
+title(['Verlauf des Fehlers zwischen Strecke und Filter mit Lernrate mu = ',num2str(mu), ' und Filter taps = ', int2str(num_taps)])
+ylabel('Fehler^2')
+xlabel('Zeit [s]')
+
+%% Adapt inverted System
+mu_inv = mu /2;
+n_inv = 20;
+wc = w; %copy w
+c = zeros(n_inv,1); %c should be double the length of w
+c_out = zeros(samples,1);
+w_out = zeros(samples,1);
+%precalculate output of plant filter
+for k= 1:samples
+    w_out(k) = fir_filter(input_signal,wc,k);
+end
+for t = n_inv:length(time_vector)
+    input_delayed = input_signal(t-(n_inv)+1); %delay input signal by length(c) steps for non-minimumphase system
+    c_out_cur = fir_filter(w_out,c,t);%cal
+    e = input_delayed - c_out_cur; 
+    c = lms(c,e,input_signal,t,mu_inv);
+    c_out(t) = c_out_cur;
+    
+end
+figure
+subplot(2,1,1);
+hold on
+plot(c_out(n_inv:end),'DisplayName','Inverted Filter Out shifted')
+plot(input_signal(1:end-n_inv),'DisplayName','Input Signal')
+legend;
+hold off
+
+error_out_inv = input_signal-c_out;
+end_error_inv = mean(error_out_inv(end-samples*0.1:end).^2)
+subplot(2,1,2);
+semilogy(error_out_inv.^2)
+title(['Verlauf des Fehlers zwischen Eingangssignal und Ausgang des invertierten Filters mit Lernrate mu = ',num2str(mu), ' und Filter taps = ', int2str(num_taps)])
+ylabel('Fehler^2')
+xlabel('Zeit [s]')
 
 %% fir_filter function test
 % c = [-0.02010411882885732
