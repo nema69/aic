@@ -1,13 +1,13 @@
 % clear all
 
 %Simulation parameters
-t_total = 50; %s
-freq = 1000; %Hz zu hohe Frequenz führt zu schlechter Konvergenz
+t_total = 10; %s
+freq = 10000; %Hz zu hohe Frequenz führt zu schlechter Konvergenz
 samples = t_total*freq;
 
 %Galvo Strecke und Regler
 S_galvo = tf(5.263e09, [1 3.247e04 2.261e07 0]);
-R_pid = pid(0.4, 9.2e-4, 9.2e-5, 0);
+R_pid = pid(0.4,0, 9.2e-4, 9.2e-5);
 
 strecke = feedback(S_galvo*R_pid, 1); %Geschlossener Regelkreis von Galvo und PID
 time_vector = linspace(0,t_total,samples);
@@ -63,7 +63,7 @@ xlabel('Zeit [s]')
 
 %% Adapt inverted System
 mu_inv = mu /2;
-n_inv = 20;
+n_inv = 150;
 wc = w; %copy w
 c = zeros(n_inv,1); %c should be double the length of w
 c_out = zeros(samples,1);
@@ -96,6 +96,25 @@ title(['Verlauf des Fehlers zwischen Eingangssignal und Ausgang des invertierten
 ylabel('Fehler^2')
 xlabel('Zeit [s]')
 
+%% Feed Forward Control
+%ÜTF des FIR Filters
+z = tf('z');
+cinv = c(end:-1:1);
+H_fir_c = tf(c',1,1/freq)*z^(-n_inv); %Ich glaube das ist schmarrn iwie
+%Diskreter PID Regler
+PID_d = c2d(R_pid,1/freq);
+Galvo_d = c2d(S_galvo,1/freq);
+
+
+
+ctrl_ff = H_fir_c*feedback(Galvo_d*PID_d,1);
+[y1, tout ] = step(ctrl_ff);
+ctrl = feedback(Galvo_d*PID_d,1);
+[y2, tout] = step(ctrl,tout);
+figure
+hold on
+plot(tout,y1);
+plot(tout,y2);
 %% fir_filter function test
 % c = [-0.02010411882885732
 % -0.05842798004352509
@@ -120,14 +139,15 @@ xlabel('Zeit [s]')
 % -0.02010411882885732
 % ]
 % 
-% imp = zeros(length(c),1);
-% imp(1) = 1;
-% out = zeros(length(c),1);
-% for i = 1:length(c)
-%     out(i) = fir_filter(imp,c,i);
-% end
-% plot(out)
-
+imp = ones(length(c),1);
+imp(1) = 0;
+out = zeros(length(c),1);
+for i = 1:length(c)
+    out(i) = fir_filter(imp,c,i);
+end
+figure
+plot(out)
+%%
 function output = fir_filter(input,coeff,position)
 %calculate the current filter output for the input[position]
 N = length(coeff);
