@@ -5,7 +5,7 @@ t_total = 30; %s
 freq = 50000; %Wenn die Frequenz erhöht wird, müssen auch die Anzahl der 
 % Filterkoeffizienten erhöht werden, damit die Strecke noch abgebildet 
 % werden kann. 
-
+samples = t_total * freq;
 %Galvo Strecke und Regler
 % S_galvo = tf(5.263e09, [1 3.247e04 2.261e07 0]);
 S_galvo = tf(5.7e09, [1.1 2.9e04 2e07 0]);
@@ -133,10 +133,17 @@ subplot(3,1,3);
 stem(c,'.')
 
 %% Feed Forward Control
+triangle = teststep;
+
+for i = 1:length(teststep)
+    triangle(i) = i*0.001;
+end
 teststep_filt = teststep;
+triangle_filt = triangle;
 cinv = c(end:-1:1);
 for i = 1:length(teststep)
     teststep_filt(i) = fir_filter(teststep, c, i);
+    triangle_filt(i) = fir_filter(triangle, c, i);
 end
 figure
 hold on
@@ -159,11 +166,21 @@ hold off
 % plot(tout,y1);
 % plot(tout,y2);
 figure
+subplot(2,1,1)
 hold on
 ctrl_out = lsim(strecke, teststep, t_teststep);
 ff_out = lsim(strecke, teststep_filt, t_teststep);
 plot(t_teststep, ff_out,'DisplayName','Sprungantwort mit Vorsteuerung')
 plot(t_teststep, ctrl_out,'DisplayName','Sprungantwort ohne Vorsteuerung')
+legend
+hold off
+subplot(2,1,2)
+hold on
+ctrl_out = lsim(strecke, triangle, t_teststep);
+ff_out = lsim(strecke, triangle_filt, t_teststep);
+plot(t_teststep, triangle,'DisplayName','Linie Führungsgröße')
+plot(t_teststep, ff_out,'DisplayName','Linie mit Vorsteuerung')
+plot(t_teststep, ctrl_out,'DisplayName','Linie ohne Vorsteuerung')
 legend
 hold off
 %% fir_filter function test
