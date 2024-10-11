@@ -9,7 +9,7 @@ samples = t_total * freq;
 %Galvo Strecke und Regler
 % S_galvo = tf(5.263e09, [1 3.247e04 2.261e07 0]);
 S_galvo = tf(5.7e09, [1.1 2.9e04 2e07 0]);
-R_pid = pid(2,1e-4, 9.2e-4, 9.2e-5);
+R_pid = pid(5, 5e-1, 9.2e-4, 9.2e-5);
 
 strecke = feedback(S_galvo*R_pid, 1); %Geschlossener Regelkreis von Galvo und PID
 time_vector = linspace(0,t_total,samples);
@@ -66,7 +66,7 @@ xlabel('Zeit [s]')
 subplot(3,1,3);
 stem(w,'.');
 
-t_end = 0.05;
+t_end = 0.015;
 t_teststep = linspace(0,t_end,t_end*freq);
 teststep = ones(t_end*freq,1);
 teststep(1:t_end*freq*0.1) = 0;
@@ -174,6 +174,8 @@ plot(t_teststep, ff_out,'DisplayName','Sprungantwort mit Vorsteuerung')
 plot(t_teststep, ctrl_out,'DisplayName','Sprungantwort ohne Vorsteuerung')
 legend
 hold off
+saveVectorsAsTypFile(t_teststep, ff_out, 'FF')
+
 subplot(2,1,2)
 hold on
 ctrl_out = lsim(strecke, triangle, t_teststep);
@@ -183,6 +185,8 @@ plot(t_teststep, ff_out,'DisplayName','Linie mit Vorsteuerung')
 plot(t_teststep, ctrl_out,'DisplayName','Linie ohne Vorsteuerung')
 legend
 hold off
+
+
 %% fir_filter function test
 % c = [-0.02010411882885732
 % -0.05842798004352509
@@ -278,4 +282,32 @@ function adaptedCoeff = adapt_filter_at(startCoeff, inputSignal, desiredOutputSi
     end
     end
     adaptedCoeff = c;
+end
+
+function saveVectorsAsTypFile(vector1, vector2, filename)
+    % Prüfen, ob die Vektoren die gleiche Länge haben
+    if length(vector1) ~= length(vector2)
+        error('Die Vektoren müssen die gleiche Länge haben.');
+    end
+
+    % Öffnen der Datei zum Schreiben
+    fileID = fopen([filename, '.typ'], 'w');
+
+    % Schreiben des Header-Teils in die Datei
+    fprintf(fileID, '#let data = (\n');
+
+    % Schreiben der Daten in das angegebene Format
+    for i = 1:length(vector1)
+        fprintf(fileID, '  (%d,%d)', vector1(i), vector2(i));
+        % Ein Komma und ein Zeilenumbruch hinzufügen, außer für das letzte Element
+        if i < length(vector1)
+            fprintf(fileID, ',\n');
+        else
+            fprintf(fileID, '\n');
+        end
+    end
+
+    % Schließen der Klammer und Datei
+    fprintf(fileID, ')\n');
+    fclose(fileID);
 end
